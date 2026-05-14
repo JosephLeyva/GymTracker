@@ -1,7 +1,8 @@
 // sessionEditor.jsx — modal to add / edit a past session from History
 
 function SessionEditorModal({ initial, isNew = false, state, onClose, onSave, onDelete }) {
-  const exMap = Object.fromEntries(state.exercises.map(e => [e.id, e]));
+  const [localExercises, setLocalExercises] = React.useState([]);
+  const exMap = Object.fromEntries([...state.exercises, ...localExercises].map(e => [e.id, e]));
 
   const [form, setForm] = React.useState(() => initial
     ? JSON.parse(JSON.stringify(initial))
@@ -47,9 +48,10 @@ function SessionEditorModal({ initial, isNew = false, state, onClose, onSave, on
     const blk = form.blocks.find(b => b.id === bid);
     updateBlock(bid, { sets: blk.sets.filter(s => s.id !== sid) });
   };
-  const addExercise = (exId) => {
-    const ex = exMap[exId];
+  const addExercise = (exId, newEx) => {
+    const ex = newEx || exMap[exId];
     if (!ex) return;
+    if (newEx) setLocalExercises(prev => [...prev, newEx]);
     const blk = {
       id: uid(),
       exerciseId: exId,
@@ -205,7 +207,7 @@ function SessionEditorModal({ initial, isNew = false, state, onClose, onSave, on
           exercises={state.exercises}
           onClose={() => setPickerOpen(false)}
           onPick={addExercise}
-          onCreate={(ex) => { state.__addExercise && state.__addExercise(ex); addExercise(ex.id); }}
+          onCreate={(ex) => { state.__addExercise && state.__addExercise(ex); addExercise(ex.id, ex); }}
         />
       )}
     </div>

@@ -79,9 +79,9 @@ function SessionView({ state, setState, goTo }) {
       }
     }));
   };
-  const addExercise = (exId) => {
-    const ex = exMap[exId];
-    const isCardio = ex.kind === 'cardio';
+  const addExercise = (exId, newEx) => {
+    const ex = newEx || exMap[exId];
+    if (!ex) return;
     const blk = {
       id: uid(),
       exerciseId: exId,
@@ -90,6 +90,7 @@ function SessionView({ state, setState, goTo }) {
     };
     setState(s => ({
       ...s,
+      exercises: newEx ? [...s.exercises, newEx] : s.exercises,
       activeSession: { ...s.activeSession, blocks: [...s.activeSession.blocks, blk] }
     }));
     setPickerOpen(false);
@@ -224,7 +225,7 @@ function SessionView({ state, setState, goTo }) {
           exercises={state.exercises}
           onClose={() => setPickerOpen(false)}
           onPick={addExercise}
-          onCreate={(ex) => { setState(s => ({ ...s, exercises: [...s.exercises, ex] })); addExercise(ex.id); }}
+          onCreate={(ex) => addExercise(ex.id, ex)}
         />
       )}
 
@@ -322,10 +323,13 @@ function SetTable({ block, kind, onUpdate, onToggle, onRemove, priorSessions, un
 function ExercisePickerModal({ exercises, onClose, onPick, onCreate }) {
   const [q, setQ] = React.useState('');
   const [eqFilter, setEqFilter] = React.useState('all');
+  const [groupFilter, setGroupFilter] = React.useState('all');
   const [creating, setCreating] = React.useState(false);
   const [nn, setNN] = React.useState({ name: '', group: 'Pecho', kind: 'strength', equipment: 'mancuernas' });
 
+  const availableGroups = [...new Set(exercises.map(e => e.group))].sort();
   const filtered = exercises
+    .filter(e => groupFilter === 'all' || e.group === groupFilter)
     .filter(e => eqFilter === 'all' || e.equipment === eqFilter)
     .filter(e => !q || e.name.toLowerCase().includes(q.toLowerCase()) || e.group.toLowerCase().includes(q.toLowerCase()));
   const groups = ['Pecho', 'Espalda', 'Piernas', 'Hombros', 'Bíceps', 'Tríceps', 'Core', 'Cardio', 'Otros'];
@@ -356,6 +360,12 @@ function ExercisePickerModal({ exercises, onClose, onPick, onCreate }) {
                     value={q} onChange={e => setQ(e.target.value)} autoFocus />
                 </div>
                 <button className="btn secondary" onClick={() => setCreating(true)}><I.Plus size={14} /> Nuevo</button>
+              </div>
+              <div className="seg" style={{ marginBottom: 8, flexWrap: 'wrap' }}>
+                <button className={groupFilter === 'all' ? 'active' : ''} onClick={() => setGroupFilter('all')}>Todos</button>
+                {availableGroups.map(g => (
+                  <button key={g} className={groupFilter === g ? 'active' : ''} onClick={() => setGroupFilter(g)}>{g}</button>
+                ))}
               </div>
               <div className="seg" style={{ marginBottom: 12, flexWrap: 'wrap' }}>
                 <button className={eqFilter === 'all' ? 'active' : ''} onClick={() => setEqFilter('all')}>Todos</button>
