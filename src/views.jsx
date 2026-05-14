@@ -626,7 +626,7 @@ function ExerciseDetailView({ state, setState, goTo, params }) {
     if (p.topE1rm > running) { prDates.add(p.date); running = p.topE1rm; }
   }
   const recentSets = [];
-  for (const s of [...state.sessions].reverse()) {
+  for (const s of [...state.sessions].sort((a, b) => b.date.localeCompare(a.date) || b.startedAt - a.startedAt)) {
     for (const b of s.blocks) {
       if (b.exerciseId !== ex.id) continue;
       for (const st of b.sets) recentSets.push({ ...st, date: s.date, sessionId: s.id });
@@ -702,7 +702,7 @@ function ExerciseDetailView({ state, setState, goTo, params }) {
           <table className="set-table" style={{ width: '100%' }}>
             <thead>
               <tr>
-                <th>Fecha</th>
+                <th style={{ width: 28 }}>#</th>
                 {ex.kind === 'cardio' ? <><th>Tiempo</th><th>Distancia</th><th>Ritmo</th></>
                   : ex.kind === 'time' ? <><th>Tiempo</th><th colSpan="2">Notas</th></>
                     : <><th>Peso</th><th>Reps</th><th>e1RM</th></>}
@@ -725,39 +725,68 @@ function ExerciseDetailView({ state, setState, goTo, params }) {
                     if (id) prSetIds.add(id);
                   }
                 }
-                return recentSets.map((st, i) => {
-                  const isPR = prSetIds.has(st.id);
-                  return (
-                    <tr key={i} style={{ borderBottom: '1px solid var(--line-1)' }}>
-                      <td style={{ color: 'var(--fg-3)' }}>{fmtDate(st.date)}</td>
-                      {ex.kind === 'cardio' ? (
-                        <>
-                          <td>{st.duration || 0} min</td>
-                          <td>{st.distance || 0} km</td>
-                          <td>{st.distance && st.duration ? (st.duration / st.distance).toFixed(2) : '—'}</td>
-                        </>
-                      ) : ex.kind === 'time' ? (
-                        <>
-                          <td>{st.duration || 0} seg</td>
-                          <td colSpan="2" style={{ color: 'var(--fg-3)' }}>{st.note || '—'}</td>
-                        </>
-                      ) : (
-                        <>
-                          <td style={{ fontWeight: 600, color: 'var(--fg-1)' }}>
-                            {isCaliEx(ex) ? fmtCaliWeight(st.weight, state.weightUnit) : `${kgToDisplay(st.weight || 0, state.weightUnit)} ${unitLabel(state.weightUnit)}`}
-                          </td>
-                          <td>{st.reps || 0}</td>
-                          <td style={{ color: 'var(--fg-3)' }}>{(() => {
-                            if (isCaliEx(ex)) return '—';
-                            const e = estOneRM(Number(st.weight), Number(st.reps));
-                            return e ? kgToDisplay(e, state.weightUnit) + ' ' + unitLabel(state.weightUnit) : '—';
-                          })()}</td>
-                        </>
-                      )}
-                      <td style={{ textAlign: 'right' }}>{isPR && <span className="pill pr"><I.Trophy size={10} /> PR</span>}</td>
+                const groups = [];
+                let curDate = null, curGroup = null;
+                for (const st of recentSets) {
+                  if (st.date !== curDate) {
+                    curDate = st.date;
+                    curGroup = { date: st.date, sets: [] };
+                    groups.push(curGroup);
+                  }
+                  curGroup.sets.push(st);
+                }
+                return groups.map(g => (
+                  <React.Fragment key={g.date}>
+                    <tr>
+                      <td colSpan={5} style={{
+                        background: 'var(--bg-2)',
+                        padding: '7px 10px',
+                        fontSize: 11,
+                        fontWeight: 700,
+                        color: 'var(--fg-2)',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.07em',
+                        borderTop: '2px solid var(--line-1)',
+                        borderBottom: '1px solid var(--line-1)',
+                      }}>
+                        {fmtWeekday(g.date)} · {fmtDate(g.date, { long: true })}
+                      </td>
                     </tr>
-                  );
-                });
+                    {g.sets.map((st, i) => {
+                      const isPR = prSetIds.has(st.id);
+                      return (
+                        <tr key={st.id} style={{ borderBottom: '1px solid var(--line-1)' }}>
+                          <td style={{ color: 'var(--fg-4)', fontVariantNumeric: 'tabular-nums' }}>{i + 1}</td>
+                          {ex.kind === 'cardio' ? (
+                            <>
+                              <td>{st.duration || 0} min</td>
+                              <td>{st.distance || 0} km</td>
+                              <td>{st.distance && st.duration ? (st.duration / st.distance).toFixed(2) : '—'}</td>
+                            </>
+                          ) : ex.kind === 'time' ? (
+                            <>
+                              <td>{st.duration || 0} seg</td>
+                              <td colSpan="2" style={{ color: 'var(--fg-3)' }}>{st.note || '—'}</td>
+                            </>
+                          ) : (
+                            <>
+                              <td style={{ fontWeight: 600, color: 'var(--fg-1)' }}>
+                                {isCaliEx(ex) ? fmtCaliWeight(st.weight, state.weightUnit) : `${kgToDisplay(st.weight || 0, state.weightUnit)} ${unitLabel(state.weightUnit)}`}
+                              </td>
+                              <td>{st.reps || 0}</td>
+                              <td style={{ color: 'var(--fg-3)' }}>{(() => {
+                                if (isCaliEx(ex)) return '—';
+                                const e = estOneRM(Number(st.weight), Number(st.reps));
+                                return e ? kgToDisplay(e, state.weightUnit) + ' ' + unitLabel(state.weightUnit) : '—';
+                              })()}</td>
+                            </>
+                          )}
+                          <td style={{ textAlign: 'right' }}>{isPR && <span className="pill pr"><I.Trophy size={10} /> PR</span>}</td>
+                        </tr>
+                      );
+                    })}
+                  </React.Fragment>
+                ));
               })()}
             </tbody>
           </table>
