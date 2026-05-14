@@ -119,6 +119,7 @@ function SessionEditorModal({ initial, isNew = false, state, onClose, onSave, on
             if (!ex) return null;
             const isCardio = blk.kind === 'cardio';
             const isTime = blk.kind === 'time';
+            const isCali = !isCardio && !isTime && ex.equipment === 'calistenia';
             const eqInfo = equipmentInfo(ex.equipment);
             const EqIcon = eqInfo ? I[eqInfo.icon] : null;
             return (
@@ -146,7 +147,7 @@ function SessionEditorModal({ initial, isNew = false, state, onClose, onSave, on
                   ) : isTime ? (
                     <><div>Seg</div><div>Notas</div><div></div><div></div></>
                   ) : (
-                    <><div>Peso ({unitLabel(state.weightUnit || 'kg')})</div><div>Reps</div><div>e1RM</div><div></div></>
+                    <><div>{isCali ? 'Asistido / Peso' : `Peso (${unitLabel(state.weightUnit || 'kg')})`}</div><div>Reps</div><div>{isCali ? 'Modo' : 'e1RM'}</div><div></div></>
                   )}
                 </div>
                 {blk.sets.map((st, i) => {
@@ -170,9 +171,17 @@ function SessionEditorModal({ initial, isNew = false, state, onClose, onSave, on
                         </>
                       ) : (
                         <>
-                          <input type="number" placeholder={unitLabel(state.weightUnit || 'kg')} value={st.weight === '' || st.weight == null ? '' : kgToDisplay(st.weight, state.weightUnit || 'kg')} onChange={e => updateSet(blk.id, st.id, { weight: e.target.value === '' ? '' : displayToKg(e.target.value, state.weightUnit || 'kg') })}/>
+                          <input type="number" placeholder={isCali ? '0 = PC' : unitLabel(state.weightUnit || 'kg')} value={st.weight === '' || st.weight == null ? '' : kgToDisplay(st.weight, state.weightUnit || 'kg')} onChange={e => updateSet(blk.id, st.id, { weight: e.target.value === '' ? '' : displayToKg(e.target.value, state.weightUnit || 'kg') })}/>
                           <input type="number" placeholder="reps" value={st.reps || ''} onChange={e => updateSet(blk.id, st.id, { reps: e.target.value })}/>
-                          <input value={e1 ? `${kgToDisplay(e1, state.weightUnit || 'kg')} ${unitLabel(state.weightUnit || 'kg')}` : ''} readOnly placeholder="—"/>
+                          {isCali
+                            ? <input value={(() => {
+                                if (st.weight === '' || st.weight == null) return 'Peso corporal';
+                                const w = Number(st.weight);
+                                if (w === 0) return 'Peso corporal';
+                                return w < 0 ? 'Asistido' : 'Añadido';
+                              })()} readOnly />
+                            : <input value={e1 ? `${kgToDisplay(e1, state.weightUnit || 'kg')} ${unitLabel(state.weightUnit || 'kg')}` : ''} readOnly placeholder="—"/>
+                          }
                         </>
                       )}
                       <button className="set-check" onClick={() => removeSet(blk.id, st.id)} title="Eliminar serie">

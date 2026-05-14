@@ -386,7 +386,9 @@ function SessionDetail({ sess, exMap, state, onClose, onDelete, onEdit }) {
                         ? <span>{st.duration || 0} min · {st.distance || 0} km</span>
                         : b.kind === 'time'
                           ? <span>{st.duration || 0} seg</span>
-                          : <span>{kgToDisplay(st.weight || 0, state.weightUnit)} {unitLabel(state.weightUnit)} × {st.reps || 0}</span>}
+                          : isCaliEx(ex)
+                            ? <span>{fmtCaliWeight(st.weight, state.weightUnit)} × {st.reps || 0}</span>
+                            : <span>{kgToDisplay(st.weight || 0, state.weightUnit)} {unitLabel(state.weightUnit)} × {st.reps || 0}</span>}
                       {isPR && <span className="pill pr"><I.Trophy size={10} /> PR</span>}
                     </div>
                   );
@@ -613,7 +615,7 @@ function ExerciseDetailView({ state, setState, goTo, params }) {
   const ex = state.exercises.find(e => e.id === params.exerciseId);
   if (!ex) return <div className="card">Ejercicio no encontrado.</div>;
 
-  const [metric, setMetric] = React.useState('topE1rm');
+  const [metric, setMetric] = React.useState(isCaliEx(ex) ? 'topWeight' : 'topE1rm');
   const [showShare, setShowShare] = React.useState(false);
   const series = exerciseSeries(ex.id, state.sessions);
   const best = bestOneRMPerExercise(state.sessions)[ex.id];
@@ -665,7 +667,9 @@ function ExerciseDetailView({ state, setState, goTo, params }) {
             <div className="pr-icon"><I.Trophy size={22} /></div>
             <div>
               <div style={{ fontSize: 11, color: 'var(--fg-3)', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600 }}>PR</div>
-              <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--fg-1)' }}>{kgToDisplay(best.weight, state.weightUnit)} {unitLabel(state.weightUnit)} × {best.reps}</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--fg-1)' }}>
+                {isCaliEx(ex) ? fmtCaliWeight(best.weight, state.weightUnit) : `${kgToDisplay(best.weight, state.weightUnit)} ${unitLabel(state.weightUnit)}`} × {best.reps}
+              </div>
               <div style={{ fontSize: 11.5, color: 'var(--fg-3)' }}>e1RM {kgToDisplay(best.e1rm, state.weightUnit)} {unitLabel(state.weightUnit)} · {fmtDate(best.date)}</div>
             </div>
           </div>
@@ -676,7 +680,7 @@ function ExerciseDetailView({ state, setState, goTo, params }) {
         <div className="card-header">
           <div>
             <div className="card-title">Progresión</div>
-            <div className="card-sub">Puntos dorados = nuevo PR</div>
+            <div className="card-sub">{isCaliEx(ex) && metric === 'topWeight' ? 'Negativo = asistido · 0 = PC · Positivo = peso añadido' : 'Puntos dorados = nuevo PR'}</div>
           </div>
           <div className="seg">
             <button className={metric === 'topE1rm' ? 'active' : ''} onClick={() => setMetric('topE1rm')}>e1RM</button>
@@ -739,9 +743,15 @@ function ExerciseDetailView({ state, setState, goTo, params }) {
                         </>
                       ) : (
                         <>
-                          <td style={{ fontWeight: 600, color: 'var(--fg-1)' }}>{kgToDisplay(st.weight || 0, state.weightUnit)} {unitLabel(state.weightUnit)}</td>
+                          <td style={{ fontWeight: 600, color: 'var(--fg-1)' }}>
+                            {isCaliEx(ex) ? fmtCaliWeight(st.weight, state.weightUnit) : `${kgToDisplay(st.weight || 0, state.weightUnit)} ${unitLabel(state.weightUnit)}`}
+                          </td>
                           <td>{st.reps || 0}</td>
-                          <td style={{ color: 'var(--fg-3)' }}>{(() => { const e = estOneRM(Number(st.weight), Number(st.reps)); return e ? kgToDisplay(e, state.weightUnit) + ' ' + unitLabel(state.weightUnit) : '—'; })()}</td>
+                          <td style={{ color: 'var(--fg-3)' }}>{(() => {
+                            if (isCaliEx(ex)) return '—';
+                            const e = estOneRM(Number(st.weight), Number(st.reps));
+                            return e ? kgToDisplay(e, state.weightUnit) + ' ' + unitLabel(state.weightUnit) : '—';
+                          })()}</td>
                         </>
                       )}
                       <td style={{ textAlign: 'right' }}>{isPR && <span className="pill pr"><I.Trophy size={10} /> PR</span>}</td>

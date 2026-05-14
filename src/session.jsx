@@ -195,6 +195,7 @@ function SessionView({ state, setState, goTo }) {
               onRemove={(setId) => removeSet(blk.id, setId)}
               priorSessions={priorSessions}
               unit={state.weightUnit || 'kg'}
+              equipment={ex.equipment}
             />
 
             <button className="btn ghost sm" style={{ marginTop: 10 }} onClick={() => addSet(blk.id)}>
@@ -240,9 +241,10 @@ function SessionView({ state, setState, goTo }) {
   );
 }
 
-function SetTable({ block, kind, onUpdate, onToggle, onRemove, priorSessions, unit = 'kg' }) {
+function SetTable({ block, kind, onUpdate, onToggle, onRemove, priorSessions, unit = 'kg', equipment }) {
   const isCardio = kind === 'cardio';
   const isTime = kind === 'time';
+  const isCali = !isCardio && !isTime && equipment === 'calistenia';
 
   return (
     <div>
@@ -264,9 +266,9 @@ function SetTable({ block, kind, onUpdate, onToggle, onRemove, priorSessions, un
           </>
         ) : (
           <>
-            <div>Peso ({unitLabel(unit)})</div>
+            <div>{isCali ? 'Asistido / Peso' : `Peso (${unitLabel(unit)})`}</div>
             <div>Reps</div>
-            <div>e1RM</div>
+            <div>{isCali ? 'Modo' : 'e1RM'}</div>
             <div></div>
           </>
         )}
@@ -300,11 +302,19 @@ function SetTable({ block, kind, onUpdate, onToggle, onRemove, priorSessions, un
                 </>
               ) : (
                 <>
-                  <input type="number" inputMode="decimal" placeholder="0" value={st.weight === '' || st.weight == null ? '' : kgToDisplay(st.weight, unit)}
+                  <input type="number" inputMode="decimal" placeholder={isCali ? '0 = PC' : '0'} value={st.weight === '' || st.weight == null ? '' : kgToDisplay(st.weight, unit)}
                     onChange={e => onUpdate(st.id, { weight: e.target.value === '' ? '' : displayToKg(e.target.value, unit) })} />
                   <input type="number" inputMode="numeric" placeholder="0" value={st.reps || ''}
                     onChange={e => onUpdate(st.id, { reps: e.target.value })} />
-                  <input value={e1 ? `${kgToDisplay(e1, unit)} ${unitLabel(unit)}` : ''} readOnly placeholder="—" />
+                  {isCali
+                    ? <input value={(() => {
+                        if (st.weight === '' || st.weight == null) return 'Peso corporal';
+                        const w = Number(st.weight);
+                        if (w === 0) return 'Peso corporal';
+                        return w < 0 ? 'Asistido' : 'Añadido';
+                      })()} readOnly />
+                    : <input value={e1 ? `${kgToDisplay(e1, unit)} ${unitLabel(unit)}` : ''} readOnly placeholder="—" />
+                  }
                 </>
               )}
               <div style={{ display: 'flex', gap: 4 }}>

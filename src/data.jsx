@@ -104,7 +104,7 @@ function sessionVolume(sess) {
   let v = 0;
   for (const blk of sess.blocks || []) {
     for (const s of blk.sets || []) {
-      if (s.done && s.weight && s.reps) v += Number(s.weight) * Number(s.reps);
+      if (s.done && s.weight > 0 && s.reps) v += Number(s.weight) * Number(s.reps);
     }
   }
   return Math.round(v);
@@ -178,7 +178,7 @@ function bestPRSetId(block, priorSessions) {
 function exerciseSeries(exerciseId, sessions) {
   const points = [];
   for (const sess of sessions) {
-    let topW = 0, topE = 0, vol = 0;
+    let topW = null, topE = 0, vol = 0;
     let found = false;
     for (const blk of (sess.blocks || [])) {
       if (blk.exerciseId !== exerciseId) continue;
@@ -187,13 +187,13 @@ function exerciseSeries(exerciseId, sessions) {
         found = true;
         const w = Number(s.weight) || 0;
         const r = Number(s.reps) || 0;
-        if (w > topW) topW = w;
+        if (topW === null || w > topW) topW = w;
         const e = estOneRM(w, r);
         if (e > topE) topE = e;
-        vol += w * r;
+        if (w > 0) vol += w * r;
       }
     }
-    if (found) points.push({ date: sess.date, topWeight: topW, topE1rm: topE, volume: Math.round(vol) });
+    if (found) points.push({ date: sess.date, topWeight: topW ?? 0, topE1rm: topE, volume: Math.round(vol) });
   }
   points.sort((a, b) => a.date.localeCompare(b.date));
   return points;
@@ -236,6 +236,17 @@ function displayToKg(val, unit) {
 function unitLabel(unit) { return unit === 'lb' ? 'lb' : 'kg'; }
 function unitLabelUpper(unit) { return unit === 'lb' ? 'LB' : 'KG'; }
 
+function isCaliEx(ex) { return ex && ex.equipment === 'calistenia' && ex.kind === 'strength'; }
+function fmtCaliWeight(w, unit) {
+  if (w === '' || w == null) return 'PC';
+  const n = Number(w);
+  if (!isFinite(n)) return 'PC';
+  if (n === 0) return 'PC';
+  const d = kgToDisplay(Math.abs(n), unit);
+  const u = unitLabel(unit);
+  return n < 0 ? `−${d} ${u}` : `+${d} ${u}`;
+}
+
 Object.assign(window, {
   DEFAULT_EXERCISES,
   EQUIPMENT_TYPES, EQUIPMENT_MAP, equipmentInfo, equipmentLabel,
@@ -245,4 +256,5 @@ Object.assign(window, {
   bestOneRMPerExercise, isPRSet, bestPRSetId, exerciseSeries,
   GROUP_COLORS, groupColor,
   kgToDisplay, displayToKg, unitLabel, unitLabelUpper,
+  isCaliEx, fmtCaliWeight,
 });
