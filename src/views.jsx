@@ -300,7 +300,7 @@ function HistoryView({ state, setState, goTo, params }) {
               <div key={s.id} className="exercise-row" onClick={() => setSelectedId(s.id)}>
                 <div style={{ width: 56, textAlign: 'center' }}>
                   <div style={{ fontSize: 10.5, color: 'var(--fg-3)', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600 }}>{fmtWeekday(s.date)}</div>
-                  <div style={{ fontSize: 20, color: 'var(--fg-1)', fontWeight: 700, letterSpacing: '-0.02em' }}>{fmtDate(s.date)}</div>
+                  <div style={{ fontSize: 17, color: 'var(--fg-1)', fontWeight: 700, letterSpacing: '-0.02em' }}>{fmtDate(s.date)}</div>
                 </div>
                 <div style={{ flex: 1 }}>
                   <div className="ex-name">{s.name || [...groups].slice(0, 3).join(' + ') || 'Sesión'}</div>
@@ -407,6 +407,9 @@ function LibraryView({ state, setState, goTo }) {
   const [eqFilter, setEqFilter] = React.useState('all');
   const [editing, setEditing] = React.useState(null);
   const [creating, setCreating] = React.useState(false);
+  const [libPage, setLibPage] = React.useState(0);
+  const [libPageSize, setLibPageSize] = React.useState(10);
+  React.useEffect(() => { setLibPage(0); }, [q, filter, eqFilter, libPageSize]);
 
   const groups = ['Pecho', 'Espalda', 'Piernas', 'Hombros', 'Bíceps', 'Tríceps', 'Core', 'Cardio'];
   const bestRMs = bestOneRMPerExercise(state.sessions);
@@ -417,6 +420,8 @@ function LibraryView({ state, setState, goTo }) {
     .filter(e => filter === 'all' || e.group === filter)
     .filter(e => eqFilter === 'all' || e.equipment === eqFilter)
     .filter(e => !q || e.name.toLowerCase().includes(q.toLowerCase()));
+  const libPageCount = Math.ceil(filtered.length / libPageSize);
+  const filteredPage = filtered.slice(libPage * libPageSize, (libPage + 1) * libPageSize);
 
   return (
     <div>
@@ -459,7 +464,7 @@ function LibraryView({ state, setState, goTo }) {
       </div>
 
       <div className="card">
-        {filtered.map(e => {
+        {filteredPage.map(e => {
           const best = bestRMs[e.id];
           const count = countByExercise[e.id] || 0;
           const eq = equipmentInfo(e.equipment);
@@ -488,6 +493,25 @@ function LibraryView({ state, setState, goTo }) {
         })}
         {filtered.length === 0 && (
           <div className="empty"><div className="empty-sub">Sin resultados</div></div>
+        )}
+        {(filtered.length > 10 || libPageCount > 1) && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 12, borderTop: '1px solid var(--line-1)' }}>
+            {libPageCount > 1 ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <button className="btn ghost sm" disabled={libPage === 0} onClick={() => setLibPage(p => p - 1)}>
+                  <I.ChevronL size={14} />
+                </button>
+                <span style={{ fontSize: 12.5, color: 'var(--fg-3)' }}>{libPage + 1} / {libPageCount}</span>
+                <button className="btn ghost sm" disabled={libPage === libPageCount - 1} onClick={() => setLibPage(p => p + 1)}>
+                  <I.ChevronR size={14} />
+                </button>
+              </div>
+            ) : <div />}
+            <div className="seg">
+              <button className={libPageSize === 10 ? 'active' : ''} onClick={() => setLibPageSize(10)}>10</button>
+              <button className={libPageSize === 25 ? 'active' : ''} onClick={() => setLibPageSize(25)}>25</button>
+            </div>
+          </div>
         )}
       </div>
 
@@ -739,6 +763,9 @@ function StatsView({ state, goTo }) {
   const [progMetric, setProgMetric] = React.useState('volume');
   const [progGroup, setProgGroup] = React.useState('all');
   const [shareChart, setShareChart] = React.useState(null);
+  const [prPage, setPrPage] = React.useState(0);
+  const [prPageSize, setPrPageSize] = React.useState(10);
+  React.useEffect(() => { setPrPage(0); }, [range, prPageSize]);
 
   const accentColor = state.accentColor || '#1EA2B8';
 
@@ -760,6 +787,8 @@ function StatsView({ state, goTo }) {
     .map(([exId, p]) => ({ ex: exMap[exId], ...p }))
     .filter(p => p.ex)
     .sort((a, b) => b.e1rm - a.e1rm);
+  const prPageCount = Math.ceil(prList.length / prPageSize);
+  const prListPage = prList.slice(prPage * prPageSize, (prPage + 1) * prPageSize);
 
   const totalVol = rangedSessions.reduce((n, s) => n + sessionVolume(s), 0);
   const totalSets = rangedSessions.reduce((n, s) => n + s.blocks.reduce((m, b) => m + b.sets.length, 0), 0);
@@ -897,7 +926,7 @@ function StatsView({ state, goTo }) {
           </div>
         ) : (
           <div>
-            {prList.map(p => (
+            {prListPage.map(p => (
               <div key={p.ex.id} className="exercise-row" style={{ cursor: 'pointer' }} onClick={() => goTo('exercise', { exerciseId: p.ex.id })}>
                 <div className="ex-chip" style={{ background: groupColor(p.ex.group) }}><I.Trophy size={18} /></div>
                 <div style={{ flex: 1 }}>
@@ -910,6 +939,25 @@ function StatsView({ state, goTo }) {
                 </div>
               </div>
             ))}
+            {(prList.length > 10 || prPageCount > 1) && (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 12, borderTop: '1px solid var(--line-1)' }}>
+                {prPageCount > 1 ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <button className="btn ghost sm" disabled={prPage === 0} onClick={() => setPrPage(p => p - 1)}>
+                      <I.ChevronL size={14} />
+                    </button>
+                    <span style={{ fontSize: 12.5, color: 'var(--fg-3)' }}>{prPage + 1} / {prPageCount}</span>
+                    <button className="btn ghost sm" disabled={prPage === prPageCount - 1} onClick={() => setPrPage(p => p + 1)}>
+                      <I.ChevronR size={14} />
+                    </button>
+                  </div>
+                ) : <div />}
+                <div className="seg">
+                  <button className={prPageSize === 10 ? 'active' : ''} onClick={() => setPrPageSize(10)}>10</button>
+                  <button className={prPageSize === 25 ? 'active' : ''} onClick={() => setPrPageSize(25)}>25</button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
