@@ -1,10 +1,129 @@
-// charts.jsx — inline SVG chart primitives
+// charts.jsx
 
-function LineChart({ points, width = 520, height = 180, prDates = new Set(), yKey = 'topE1rm', unit = 'kg' }) {
-  const pad = { t: 20, r: 16, b: 28, l: 40 };
-  const w = width, h = height;
-  const iw = w - pad.l - pad.r;
-  const ih = h - pad.t - pad.b;
+function LineChart({ points, prDates = new Set(), yKey = 'topE1rm', unit = 'kg', color = '#2FB4C8' }) {
+  const canvasRef = React.useRef(null);
+  const chartRef = React.useRef(null);
+
+  const rgba = (hex, a) => {
+    const h = hex.replace('#', '');
+    const full = h.length === 3 ? h.split('').map(c => c + c).join('') : h;
+    const r = parseInt(full.slice(0, 2), 16);
+    const g = parseInt(full.slice(2, 4), 16);
+    const b = parseInt(full.slice(4, 6), 16);
+    return `rgba(${r},${g},${b},${a})`;
+  };
+
+  const metaLabel = { topE1rm: 'e1RM estimado', topWeight: 'Top peso', volume: 'Volumen' }[yKey] || yKey;
+
+  React.useEffect(() => {
+    if (!canvasRef.current || !window.Chart) return;
+    if (!points || points.length === 0) {
+      if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; }
+      return;
+    }
+
+    const ctx = canvasRef.current.getContext('2d');
+    const canvasH = canvasRef.current.parentElement.clientHeight || 220;
+    const grad = ctx.createLinearGradient(0, 0, 0, canvasH);
+    grad.addColorStop(0, rgba(color, 0.42));
+    grad.addColorStop(0.6, rgba(color, 0.08));
+    grad.addColorStop(1, rgba(color, 0));
+
+    const toUnit = v => (typeof kgToDisplay === 'function' ? kgToDisplay(v || 0, unit) : v || 0);
+    const labels = points.map(p => p.date);
+    const data = points.map(p => toUnit(p[yKey] || 0));
+    const prList = points.map(p => prDates.has(p.date));
+
+    if (chartRef.current) chartRef.current.destroy();
+
+    chartRef.current = new window.Chart(ctx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          label: metaLabel,
+          data,
+          borderColor: color,
+          backgroundColor: grad,
+          borderWidth: 3,
+          tension: 0.32,
+          fill: true,
+          pointRadius: prList.map(pr => pr ? 7 : 4),
+          pointHoverRadius: prList.map(pr => pr ? 10 : 7),
+          pointBackgroundColor: prList.map(pr => pr ? '#FBBF24' : color),
+          pointBorderColor: prList.map(pr => pr ? 'rgba(251,191,36,0.45)' : '#0A0D12'),
+          pointBorderWidth: prList.map(pr => pr ? 4 : 2),
+          order: 1,
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        animation: { duration: 500, easing: 'easeOutQuart' },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: 'rgba(10,13,18,0.95)',
+            borderColor: rgba(color, 0.5),
+            borderWidth: 1,
+            titleColor: '#fff',
+            bodyColor: 'rgba(255,255,255,0.9)',
+            padding: 12,
+            displayColors: false,
+            callbacks: {
+              title(items) {
+                if (!items.length) return '';
+                const d = new Date(items[0].label + 'T00:00:00');
+                return d.toLocaleDateString('es-MX', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+              },
+              label(item) {
+                const p = points[item.dataIndex];
+                const isPR = prDates.has(p.date);
+                const lines = [` ${metaLabel}: ${Math.round(item.parsed.y).toLocaleString('es-MX')} ${unit}`];
+                if (isPR) lines.push(' 🏆 Nuevo PR');
+                return lines;
+              },
+            },
+          },
+        },
+        scales: {
+          x: {
+            grid: { color: 'rgba(255,255,255,0.05)' },
+            ticks: {
+              color: 'rgba(255,255,255,0.55)',
+              font: { size: 11 },
+              maxRotation: 0,
+              autoSkip: true,
+              maxTicksLimit: 7,
+              callback(v) {
+                const label = this.getLabelForValue(v);
+                if (!label) return '';
+                const d = new Date(label + 'T00:00:00');
+                return d.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' });
+              },
+            },
+            border: { display: false },
+          },
+          y: {
+            beginAtZero: false,
+            grid: { color: 'rgba(255,255,255,0.07)' },
+            ticks: {
+              color: 'rgba(255,255,255,0.55)',
+              font: { size: 11 },
+              callback: v => v >= 1000 ? (v / 1000).toFixed(v >= 10000 ? 0 : 1) + 'k' : v,
+            },
+            border: { display: false },
+          },
+        },
+        elements: { line: { borderJoinStyle: 'round', capBezierPoints: true } },
+      },
+    });
+
+    return () => {
+      if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; }
+    };
+  }, [points, yKey, prDates, unit, color]);
 
   if (!points || points.length === 0) {
     return (
@@ -14,50 +133,10 @@ function LineChart({ points, width = 520, height = 180, prDates = new Set(), yKe
     );
   }
 
-  const vals = points.map(p => kgToDisplay(p[yKey] || 0, unit));
-  const min = Math.min(...vals, 0);
-  const maxRaw = Math.max(...vals, 1);
-  const max = maxRaw + (maxRaw - min) * 0.15 || 1;
-  const minY = Math.max(0, min - (max - min) * 0.1);
-
-  const x = (i) => pad.l + (points.length === 1 ? iw / 2 : (i / (points.length - 1)) * iw);
-  const y = (v) => pad.t + ih - ((v - minY) / (max - minY || 1)) * ih;
-
-  const path = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${x(i)} ${y(kgToDisplay(p[yKey] || 0, unit))}`).join(' ');
-  const area = path + ` L ${x(points.length - 1)} ${pad.t + ih} L ${x(0)} ${pad.t + ih} Z`;
-
-  // y ticks
-  const ticks = 4;
-  const tickVals = Array.from({ length: ticks + 1 }, (_, i) => minY + ((max - minY) * i) / ticks);
-
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} width="100%" style={{ display: 'block', maxHeight: h }}>
-      <defs>
-        <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#1EA2B8" stopOpacity="0.35" />
-          <stop offset="100%" stopColor="#1EA2B8" stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      {tickVals.map((v, i) => (
-        <g key={i}>
-          <line className="chart-grid" x1={pad.l} x2={w - pad.r} y1={y(v)} y2={y(v)} strokeDasharray="2 4" />
-          <text className="chart-axis" x={pad.l - 8} y={y(v) + 3} textAnchor="end">{Math.round(v)}</text>
-        </g>
-      ))}
-      <path className="chart-area" d={area} />
-      <path className="chart-line" d={path} />
-      {points.map((p, i) => {
-        const isPR = prDates.has(p.date);
-        return (
-          <g key={i}>
-            <circle className={`chart-dot ${isPR ? 'pr' : ''}`} cx={x(i)} cy={y(kgToDisplay(p[yKey] || 0, unit))} r={isPR ? 5 : 3.5} />
-            {(i === 0 || i === points.length - 1 || isPR) && (
-              <text className="chart-axis" x={x(i)} y={h - 8} textAnchor="middle">{fmtDate(p.date)}</text>
-            )}
-          </g>
-        );
-      })}
-    </svg>
+    <div style={{ position: 'relative', height: 220 }}>
+      <canvas ref={canvasRef} />
+    </div>
   );
 }
 
